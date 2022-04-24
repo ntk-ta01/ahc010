@@ -46,14 +46,13 @@ fn main() {
     let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(7_300_000_000);
     let input = parse_input();
     let mut out = vec![0; N * N];
-    // let mut out = (0..N * N)
-    //     .into_iter()
-    //     .map(|_| rng.gen_range(0, 4))
-    //     .collect_vec();
     annealing(&input, &mut out, &mut timer, &mut rng);
     println!("{}", out.iter().map(|&n| n.to_string()).collect::<String>());
     // eprintln!("{:?}", compute_score(&input, &out).1 .1);
 }
+
+#[allow(dead_code)]
+fn initial_sol() {}
 
 fn annealing(
     input: &Input,
@@ -70,11 +69,11 @@ fn annealing(
     let mut prob;
 
     let mut count = 0;
-    let (mut now_score, (mut tiles, mut cycle)) = compute_score(input, output);
+    let (mut now_score, (_, _), mut total_length) = compute_score2(input, output);
 
     let mut best_score = now_score;
     let mut best_output = output.clone();
-    const NEIGH_COUNT: i32 = 3;
+    const NEIGH_COUNT: i32 = 2;
     loop {
         if count >= 100 {
             // let now = timer.get_time();
@@ -108,31 +107,28 @@ fn annealing(
                     new_out[update_index] = update_rotate;
                 }
             }
-            2 => {
-                // around update
-                let around = search_cycle_around(&tiles, &cycle);
-                if !around.is_empty() {
-                    for _ in 0..90 {
-                        let update_index = rng.gen_range(0, around.len());
-                        let update_rotate = rng.gen_range(0, 3);
-                        new_out[around[update_index]] = update_rotate;
-                    }
-                }
-            }
             _ => unreachable!(),
         }
-        let (new_score, (new_tiles, new_cycle)) = compute_score(input, &new_out);
-        prob = f64::exp((new_score - now_score) as f64 / temp);
+        let (new_score, (_, _), new_total_length) = compute_score2(input, &new_out);
+        prob = f64::exp((new_score * new_total_length - now_score * total_length) as f64 / temp);
         if now_score < new_score || rng.gen_bool(prob) {
             now_score = new_score;
-            tiles = new_tiles;
-            cycle = new_cycle;
+            total_length = new_total_length;
+            // tiles = new_tiles;
+            // cycle = new_cycle;
             *output = new_out;
         }
 
         if best_score < now_score {
             best_score = now_score;
             best_output = output.clone();
+            // println!(
+            //     "{}",
+            //     best_output
+            //         .iter()
+            //         .map(|&n| n.to_string())
+            //         .collect::<String>()
+            // );
         }
     }
     eprintln!("{}", best_score);
@@ -140,6 +136,7 @@ fn annealing(
     best_score
 }
 
+#[allow(dead_code)]
 fn search_cycle_around(tiles: &[Vec<usize>], cycle: &[Vec<Vec<(i32, i32)>>]) -> Vec<usize> {
     let mut around = vec![];
     for i in 0..N {
@@ -163,6 +160,7 @@ fn search_cycle_around(tiles: &[Vec<usize>], cycle: &[Vec<Vec<(i32, i32)>>]) -> 
     around
 }
 
+#[allow(clippy::type_complexity)]
 fn compute_score(
     input: &Input,
     out: &Output,
@@ -227,6 +225,75 @@ fn compute_score(
         ls[ls.len() - 1].0 * ls[ls.len() - 2].0
     };
     (score as i64, (tiles, cycle))
+}
+
+#[allow(clippy::type_complexity)]
+fn compute_score2(
+    input: &Input,
+    out: &Output,
+) -> (i64, (Vec<Vec<usize>>, Vec<Vec<Vec<(i32, i32)>>>), i64) {
+    let mut tiles = input.tiles.clone();
+    for i in 0..N {
+        for j in 0..N {
+            for _ in 0..out[i * N + j] {
+                tiles[i][j] = ROTATE[tiles[i][j]];
+            }
+        }
+    }
+    let mut total_length = 0;
+    let mut ls = vec![];
+    let mut used = mat![false; N; N; 4];
+    let mut cycle = mat![(0, 0); N; N; 4];
+    for i in 0..N {
+        for j in 0..N {
+            for d in 0..4 {
+                if TO[tiles[i][j]][d] != !0 && !used[i][j][d] {
+                    let mut i2 = i;
+                    let mut j2 = j;
+                    let mut d2 = d;
+                    let mut length = 0;
+                    let mut tmp = vec![];
+                    while !used[i2][j2][d2] {
+                        if TO[tiles[i2][j2]][d2] == !0 {
+                            break;
+                        }
+                        total_length += 1;
+                        length += 1;
+                        used[i2][j2][d2] = true;
+                        tmp.push((i2, j2, d2));
+                        d2 = TO[tiles[i2][j2]][d2];
+                        used[i2][j2][d2] = true;
+                        tmp.push((i2, j2, d2));
+                        i2 += DIJ[d2].0;
+                        j2 += DIJ[d2].1;
+                        if i2 >= N || j2 >= N {
+                            break;
+                        }
+                        d2 = (d2 + 2) % 4;
+                    }
+                    if (i, j, d) == (i2, j2, d2) {
+                        ls.push((length, tmp.clone()));
+                        for (i, j, d) in tmp {
+                            cycle[i][j][d].0 = length;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let score = if ls.len() <= 1 {
+        0
+    } else {
+        ls.sort();
+        for &(i, j, d) in &ls[ls.len() - 1].1 {
+            cycle[i][j][d].1 = 1;
+        }
+        for &(i, j, d) in &ls[ls.len() - 2].1 {
+            cycle[i][j][d].1 = 2;
+        }
+        ls[ls.len() - 1].0 * ls[ls.len() - 2].0
+    };
+    (score as i64, (tiles, cycle), total_length)
 }
 
 fn get_time() -> f64 {
