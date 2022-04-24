@@ -43,7 +43,7 @@ fn parse_input() -> Input {
 
 fn main() {
     let mut timer = Timer::new();
-    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(94016000);
+    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(93216000);
     let input = parse_input();
     let mut out = vec![0; N * N];
     annealing(&input, &mut out, &mut timer, &mut rng);
@@ -110,7 +110,11 @@ fn annealing(
             _ => unreachable!(),
         }
         let (new_score, (_, _), new_total_length) = compute_score2(input, &new_out);
-        prob = f64::exp((new_score * new_total_length - now_score * total_length) as f64 / temp);
+        prob = f64::exp(
+            (new_score * new_total_length * new_total_length * new_total_length
+                - now_score * total_length * total_length * total_length) as f64
+                / temp,
+        );
         if now_score < new_score || rng.gen_bool(prob) {
             now_score = new_score;
             total_length = new_total_length;
