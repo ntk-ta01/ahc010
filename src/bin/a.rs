@@ -73,6 +73,8 @@ fn annealing(
 
     let mut best_score = now_score;
     let mut best_output = output.clone();
+
+    let mut eval_switch = false;
     const NEIGH_COUNT: i32 = 2;
     loop {
         if count >= 100 {
@@ -81,6 +83,9 @@ fn annealing(
             let passed = timer.get_time() / TIMELIMIT;
             if passed >= 1.0 {
                 break;
+            }
+            if passed > 0.45 {
+                eval_switch = true;
             }
             // eprintln!("{} {}", temp, now_score);
             temp = T0.powf(1.0 - passed) * T1.powf(passed);
@@ -109,7 +114,12 @@ fn annealing(
             }
             _ => unreachable!(),
         }
-        let (new_score, (_, _), new_total_length) = compute_score2(input, &new_out);
+        let (new_score, (_, _), new_total_length) = if !eval_switch {
+            compute_score2(input, &new_out)
+        } else {
+            let (new_score, (tiles, cycle)) = compute_score(input, &new_out);
+            (new_score, (tiles, cycle), 1)
+        };
         prob = f64::exp((new_score * new_total_length - now_score * total_length) as f64 / temp);
         if now_score < new_score || rng.gen_bool(prob) {
             now_score = new_score;
