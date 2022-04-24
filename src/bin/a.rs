@@ -10,7 +10,7 @@ macro_rules! mat {
 
 type Output = Vec<i32>;
 
-const TIMELIMIT: f64 = 1.94;
+const TIMELIMIT: f64 = 1.96;
 const N: usize = 30;
 const DIJ: [(usize, usize); 4] = [(0, !0), (!0, 0), (0, 1), (1, 0)];
 const ROTATE: [usize; 8] = [1, 2, 3, 0, 5, 4, 7, 6];
@@ -84,7 +84,7 @@ fn annealing(
             if passed >= 1.0 {
                 break;
             }
-            if passed > 0.45 {
+            if passed > 0.5 {
                 eval_switch = true;
             }
             // eprintln!("{} {}", temp, now_score);
