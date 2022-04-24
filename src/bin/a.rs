@@ -10,7 +10,7 @@ macro_rules! mat {
 
 type Output = Vec<i32>;
 
-const TIMELIMIT: f64 = 1.96;
+const TIMELIMIT: f64 = 1.97;
 const N: usize = 30;
 const DIJ: [(usize, usize); 4] = [(0, !0), (!0, 0), (0, 1), (1, 0)];
 const ROTATE: [usize; 8] = [1, 2, 3, 0, 5, 4, 7, 6];
@@ -43,7 +43,7 @@ fn parse_input() -> Input {
 
 fn main() {
     let mut timer = Timer::new();
-    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(7_300_000_000);
+    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(94016000);
     let input = parse_input();
     let mut out = vec![0; N * N];
     annealing(&input, &mut out, &mut timer, &mut rng);
@@ -63,7 +63,7 @@ fn annealing(
     // e_temp: f64,
 ) -> i64 {
     const T0: f64 = 100.0;
-    const T1: f64 = 0.0001;
+    const T1: f64 = 0.00001;
     let mut temp = T0;
     // let mut temp = s_temp;
     let mut prob;
@@ -73,8 +73,6 @@ fn annealing(
 
     let mut best_score = now_score;
     let mut best_output = output.clone();
-
-    let mut eval_switch = false;
     const NEIGH_COUNT: i32 = 2;
     loop {
         if count >= 100 {
@@ -83,9 +81,6 @@ fn annealing(
             let passed = timer.get_time() / TIMELIMIT;
             if passed >= 1.0 {
                 break;
-            }
-            if passed > 0.5 {
-                eval_switch = true;
             }
             // eprintln!("{} {}", temp, now_score);
             temp = T0.powf(1.0 - passed) * T1.powf(passed);
@@ -114,12 +109,7 @@ fn annealing(
             }
             _ => unreachable!(),
         }
-        let (new_score, (_, _), new_total_length) = if !eval_switch {
-            compute_score2(input, &new_out)
-        } else {
-            let (new_score, (tiles, cycle)) = compute_score(input, &new_out);
-            (new_score, (tiles, cycle), 1)
-        };
+        let (new_score, (_, _), new_total_length) = compute_score2(input, &new_out);
         prob = f64::exp((new_score * new_total_length - now_score * total_length) as f64 / temp);
         if now_score < new_score || rng.gen_bool(prob) {
             now_score = new_score;
