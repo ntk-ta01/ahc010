@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use proconio::{input, marker::Chars};
 use rand::prelude::*;
 #[macro_export]
@@ -53,7 +52,7 @@ fn main() {
     //     .collect_vec();
     annealing(&input, &mut out, &mut timer, &mut rng);
     println!("{}", out.iter().map(|&n| n.to_string()).collect::<String>());
-    // eprintln!("{}", compute_score(&input, &out).0);
+    // eprintln!("{:?}", compute_score(&input, &out).1 .1);
 }
 
 fn annealing(
@@ -65,17 +64,17 @@ fn annealing(
     // e_temp: f64,
 ) -> i64 {
     const T0: f64 = 100.0;
-    const T1: f64 = 0.01;
+    const T1: f64 = 0.0001;
     let mut temp = T0;
     // let mut temp = s_temp;
     let mut prob;
 
     let mut count = 0;
-    let mut now_score = compute_score(input, output).0;
+    let (mut now_score, (mut tiles, mut cycle)) = compute_score(input, output);
 
     let mut best_score = now_score;
     let mut best_output = output.clone();
-    const NEIGH_COUNT: i32 = 2;
+    const NEIGH_COUNT: i32 = 3;
     loop {
         if count >= 100 {
             // let now = timer.get_time();
@@ -109,12 +108,25 @@ fn annealing(
                     new_out[update_index] = update_rotate;
                 }
             }
+            2 => {
+                // around update
+                let around = search_cycle_around(&tiles, &cycle);
+                if !around.is_empty() {
+                    for _ in 0..90 {
+                        let update_index = rng.gen_range(0, around.len());
+                        let update_rotate = rng.gen_range(0, 3);
+                        new_out[around[update_index]] = update_rotate;
+                    }
+                }
+            }
             _ => unreachable!(),
         }
-        let new_score = compute_score(input, &new_out).0;
+        let (new_score, (new_tiles, new_cycle)) = compute_score(input, &new_out);
         prob = f64::exp((new_score - now_score) as f64 / temp);
         if now_score < new_score || rng.gen_bool(prob) {
             now_score = new_score;
+            tiles = new_tiles;
+            cycle = new_cycle;
             *output = new_out;
         }
 
@@ -126,6 +138,29 @@ fn annealing(
     eprintln!("{}", best_score);
     *output = best_output;
     best_score
+}
+
+fn search_cycle_around(tiles: &[Vec<usize>], cycle: &[Vec<Vec<(i32, i32)>>]) -> Vec<usize> {
+    let mut around = vec![];
+    for i in 0..N {
+        for j in 0..N {
+            for d in 0..4 {
+                if TO[tiles[i][j]][d] != !0 && d < TO[tiles[i][j]][d] {
+                    // let d2 = TO[tiles[i][j]][d];
+                    if cycle[i][j][d].1 == 1 || cycle[i][j][d].1 == 2 {
+                        for &(di, dj) in DIJ.iter() {
+                            let ni = i + di;
+                            let nj = j + dj;
+                            if 30 * ni + nj < N * N {
+                                around.push(30 * ni + nj)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    around
 }
 
 fn compute_score(
